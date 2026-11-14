@@ -1,39 +1,64 @@
 
-name: DolphinGC Build Check
+name: DolphinGC PS3 Build
 
 on:
   workflow_dispatch:
   push:
-    branches:
-      - main
+    branches: [main]
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-
+  build:
+    runs-on: ubuntu-22.04
     steps:
       - name: Baixar projeto
         uses: actions/checkout@v4
 
-      - name: Preparar arquivos
+      - name: Instalar dependencias
         run: |
           sudo apt-get update
-          sudo apt-get install -y unzip build-essential
+          sudo apt-get install -y \
+            autoconf automake bison flex gcc \
+            libelf-dev make texinfo patch wget \
+            zlib1g-dev libtool libtool-bin bzip2 \
+            pkg-config g++ libssl-dev clang \
+            python3 python-is-python3 \
+            subversion libgmp-dev
 
-      - name: Extrair projeto
+      - name: Instalar PS3DEV
         run: |
-          unzip -q dolphinGCV.01_com_icone_e_capa.zip -d source
+          git clone --depth 1 https://github.com/ps3dev/ps3dev.git ps3dev
+          cd ps3dev
+          chmod +x prepare.sh build-all.sh
+          sudo ./prepare.sh
+          sudo ./build-all.sh
 
-      - name: Verificar estrutura
+      - name: Configurar ambiente
         run: |
-          cd source/dolphinGCV.01
-          ls -la
-          test -f Makefile
-          test -f ICON0.PNG
-          test -f PIC1.PNG
+          echo "PS3DEV=/usr/local/ps3dev" >> $GITHUB_ENV
+          echo "PSL1GHT=/usr/local/ps3dev" >> $GITHUB_ENV
+          echo "/usr/local/ps3dev/bin" >> $GITHUB_PATH
+          echo "/usr/local/ps3dev/ppu/bin" >> $GITHUB_PATH
+          echo "/usr/local/ps3dev/spu/bin" >> $GITHUB_PATH
 
-      - name: Executar testes
+      - name: Verificar compilador
         run: |
-          cd source/dolphinGCV.01
-          make -f Makefile.host test
+          ppu-g++ --version
+
+      - name: Extrair DolphinGC
+        run: |
+          unzip -q dolphinGCV.01_com_icone_e_capa.zip
+          cd dolphinGCV.01
+
+      - name: Compilar ELF
+        run: |
+          cd dolphinGCV.01
+          make clean
+          make
+
+      - name: Publicar ELF
+        uses: actions/upload-artifact@v4
+        with:
+          name: DolphinGC-PS3-ELF
+          path: dolphinGCV.01/dolphinGCV.01.elf
+          if-no-files-found: error
           
