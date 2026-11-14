@@ -1,0 +1,39 @@
+
+name: DolphinGC Build Check
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Baixar projeto
+        uses: actions/checkout@v4
+
+      - name: Preparar arquivos
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y unzip build-essential
+
+      - name: Extrair projeto
+        run: |
+          unzip -q dolphinGCV.01_com_icone_e_capa.zip -d source
+
+      - name: Verificar estrutura
+        run: |
+          cd source/dolphinGCV.01
+          ls -la
+          test -f Makefile
+          test -f ICON0.PNG
+          test -f PIC1.PNG
+
+      - name: Executar testes
+        run: |
+          cd source/dolphinGCV.01
+          make -f Makefile.host test
+          
