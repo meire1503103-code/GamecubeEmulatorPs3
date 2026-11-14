@@ -24,44 +24,4 @@ jobs:
           export PS3DEV=${PS3DEV:-/usr/local/ps3dev}
           export PSL1GHT=${PSL1GHT:-$PS3DEV}
           export PATH=$PATH:$PS3DEV/bin:$PS3DEV/ppu/bin
-          sed -i "s/std::snprintf/snprintf/g; s/std::vsnprintf/vsnprintf/g; s/std::isnan(/__builtin_isnan(/g; s/std::isinf(/__builtin_isinf(/g; s/std::fma/::fma/g; s/std::trunc/::trunc/g; s/std::nearbyint/::nearbyint/g; s/std::fesetround([^)]*)/0/g" src/*.cpp src/*.h
-          sed -i "/gcm\/gcm.h/d" src/*.cpp src/*.h
-          ppu-g++ -O2 -std=gnu++11 -Wall -DDOLPHINPS3_PLATFORM_PS3 -include cstdio -include cmath -I$PSL1GHT/ppu/include -I$PS3DEV/ppu/include src/*.cpp -L$PSL1GHT/ppu/lib -L$PS3DEV/ppu/lib -lrsx -lgcm_sys -lio -lsysutil -lrt -llv2 -lm -o dolphinGCV.01.elf > build.log 2>&1
-          RC=$?
-          echo "=== RESUMO DOS ERROS ==="
-          grep -E "error|undefined reference|cannot find" build.log | head -n 30
-          echo "=== FIM COMPILACAO (codigo $RC) ==="
-          [ $RC -ne 0 ] && exit $RC
-          CID=UP0001-DGCV00001_00-0000000000000000
-          PY=$(which python3 || which python)
-          which sprxlinker make_self make_self_npdrm sfo.py pkg.py
-          rm -rf pkg && mkdir -p pkg/USRDIR
-          ( sprxlinker dolphinGCV.01.elf
-            make_self dolphinGCV.01.elf dolphinGCV.01.self
-            make_self_npdrm dolphinGCV.01.elf pkg/USRDIR/EBOOT.BIN $CID
-            $PY $(which sfo.py) --title "DolphinGC V.01" --appid "DGCV00001" -f sfo.xml pkg/PARAM.SFO
-            cp ICON0.PNG PIC1.PNG pkg/
-            $PY $(which pkg.py) --contentid $CID pkg/ dolphinGCV.01.pkg ) > pkg.log 2>&1
-          PRC=$?
-          echo "=== RESUMO PKG ==="
-          tail -n 25 pkg.log
-          echo "=== FIM PKG (codigo $PRC) ==="
-          exit $PRC
-          '
-
-      - name: Conferir arquivos
-        if: always()
-        run: |
-          find emu -name '*.elf' -o -name '*.self' -o -name '*.pkg' -o -name '*.log'
-          test -n "$(find emu -name '*.elf')" || { echo "NENHUM ELF GERADO"; exit 1; }
-
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: gc-emu-ps3
-          if-no-files-found: error
-          path: |
-            emu/**/*.pkg
-            emu/**/*.self
-            emu/**/*.elf
-            emu/**/*.log
+          sed -i "s/std::snprintf/snprintf/g; s/std::vsnprintf/vsnprintf/g; s/std::isnan(/__builtin_
