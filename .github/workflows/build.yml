@@ -28,54 +28,10 @@ jobs:
           export PSL1GHT=${PSL1GHT:-$PS3DEV}
           export PATH=$PATH:$PS3DEV/bin:$PS3DEV/ppu/bin
 
-          # Ajustes de compatibilidade com o PS3
           sed -i 's/std::snprintf/snprintf/g; s/std::vsnprintf/vsnprintf/g; s/std::isnan(/__builtin_isnan(/g; s/std::isinf(/__builtin_isinf(/g; s/std::fesetround/ps3_fesetround/g' src/*.cpp src/*.h
           sed -i '/gcm\/gcm.h/d' src/*.cpp src/*.h
 
           cat > ps3shim.h <<'SHIM'
           #include <cstdio>
           #include <cmath>
-          namespace std {
-            using ::snprintf;
-            using ::fma;
-            using ::trunc;
-            using ::nearbyint;
-          }
-          #ifndef FE_TONEAREST
-          #define FE_TONEAREST 0
-          #define FE_TOWARDZERO 1
-          #define FE_UPWARD 2
-          #define FE_DOWNWARD 3
-          #endif
-          static inline int ps3_fesetround(int m) {
-          #if defined(__powerpc__) || defined(__PPC__)
-            if (m & 1) __asm__ volatile("mtfsb1 31"); else __asm__ volatile("mtfsb0 31");
-            if (m & 2) __asm__ volatile("mtfsb1 30"); else __asm__ volatile("mtfsb0 30");
-          #endif
-            return 0;
-          }
-          SHIM
-
-          ppu-g++ -O2 -std=gnu++11 -Wall -DDOLPHINPS3_PLATFORM_PS3 \
-            -include ./ps3shim.h \
-            -I$PSL1GHT/ppu/include -I$PS3DEV/ppu/include \
-            src/*.cpp \
-            -L$PSL1GHT/ppu/lib -L$PS3DEV/ppu/lib \
-            -lrsx -lgcm_sys -lio -lsysutil -lrt -llv2 -lm \
-            -o dolphinGCV.01.elf > build.log 2>&1
-          RC=$?
-          echo "=== RESUMO DOS ERROS ==="
-          grep -E "error|undefined reference|cannot find" build.log | head -n 30
-          echo "=== FIM (codigo $RC) ==="
-          exit $RC
-          EOF
-          docker run --rm -v "$PWD:/build" -w /build \
-            ghcr.io/altps3/ps3dev:latest sh ps3build.sh "/build/$DIR"
-
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: gc-emu-ps3
-          path: |
-            emu/**/*.elf
-            emu/**/build.log
+          namespace s
