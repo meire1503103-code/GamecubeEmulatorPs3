@@ -17,19 +17,19 @@ jobs:
         run: |
           mkdir -p emu
           unzip -o ./*.zip -d emu
-          echo "=== Arquivos extraídos ==="
           ls -R emu | head -n 60
 
       - name: Compilar
         run: |
           MK=$(find emu -iname Makefile | head -n1)
-          if [ -z "$MK" ]; then
-            echo "ERRO: nenhum Makefile dentro do zip"
-            exit 1
-          fi
           DIR=$(dirname "$MK")
           echo "Compilando em: $DIR"
-          docker run --rm -v "$PWD:/src" -w "/src/$DIR" flipacholas/ps3devextra:ubuntu-latest make -j4
+          docker run --rm -v "$PWD:/src" -w "/src/$DIR" \
+            -e PS3DEV=/usr/local/ps3dev \
+            -e PSL1GHT=/usr/local/ps3dev \
+            -e CPATH=/usr/local/ps3dev/ppu/include:/usr/local/ps3dev/portlibs/ppu/include \
+            flipacholas/ps3devextra:ubuntu-latest \
+            sh -c 'find / -name pad.h -path "*io/*" 2>/dev/null; make -j4'
 
       - uses: actions/upload-artifact@v4
         if: always()
