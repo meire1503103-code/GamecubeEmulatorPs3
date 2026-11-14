@@ -19,9 +19,19 @@ jobs:
       - name: Compilar
         run: |
           DIR=$(dirname "$(find emu -iname Makefile | head -n1)")
-          echo "Projeto em: $DIR"
-          docker run --rm -v "$PWD:/build" -w "/build/$DIR" ghcr.io/altps3/ps3dev:latest sh -c '
-          export PS3DEV=${PS3DEV:-/usr/local/ps3dev}
-          export PSL1GHT=${PSL1GHT:-$PS3DEV}
-          export PATH=$PATH:$PS3DEV/bin:$PS3DEV/ppu/bin
-          sed -i "s/std::snprintf/snprintf/g; s/std::vsnprintf/vsnprintf/g; s/std::isnan(/__builtin_
+          docker run --rm -v "$PWD:/build" -w "/build/$DIR" ghcr.io/altps3/ps3dev:latest sh ps3build.sh
+
+      - name: Conferir arquivos
+        if: always()
+        run: find emu -name '*.elf' -o -name '*.self' -o -name '*.pkg' -o -name '*.log'
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gc-emu-ps3
+          if-no-files-found: error
+          path: |
+            emu/**/*.pkg
+            emu/**/*.self
+            emu/**/*.elf
+            emu/**/*.log
