@@ -28,8 +28,10 @@ jobs:
           export PSL1GHT=${PSL1GHT:-$PS3DEV}
           export PATH=$PATH:$PS3DEV/bin:$PS3DEV/ppu/bin
 
-          # Ajustes de compatibilidade com o newlib do PS3
-          sed -i 's/std::snprintf/snprintf/g; s/std::vsnprintf/vsnprintf/g; s/std::isnan(/__builtin_isnan(/g; s/std::isinf(/__builtin_isinf(/g' src/*.cpp src/*.h
+          # Ajustes de compatibilidade com o PS3
+          sed -i 's/std::snprintf/snprintf/g; s/std::vsnprintf/vsnprintf/g; s/std::isnan(/__builtin_isnan(/g; s/std::isinf(/__builtin_isinf(/g; s/std::fesetround/ps3_fesetround/g' src/*.cpp src/*.h
+          sed -i '/gcm\/gcm.h/d' src/*.cpp src/*.h
+
           cat > ps3shim.h <<'SHIM'
           #include <cstdio>
           #include <cmath>
@@ -38,6 +40,19 @@ jobs:
             using ::fma;
             using ::trunc;
             using ::nearbyint;
+          }
+          #ifndef FE_TONEAREST
+          #define FE_TONEAREST 0
+          #define FE_TOWARDZERO 1
+          #define FE_UPWARD 2
+          #define FE_DOWNWARD 3
+          #endif
+          static inline int ps3_fesetround(int m) {
+          #if defined(__powerpc__) || defined(__PPC__)
+            if (m & 1) __asm__ volatile("mtfsb1 31"); else __asm__ volatile("mtfsb0 31");
+            if (m & 2) __asm__ volatile("mtfsb1 30"); else __asm__ volatile("mtfsb0 30");
+          #endif
+            return 0;
           }
           SHIM
 
