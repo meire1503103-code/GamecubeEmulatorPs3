@@ -18,25 +18,28 @@ jobs:
           mkdir -p emu
           unzip -o ./*.zip -d emu
 
-      - name: Diagnostico
-        run: |
-          MK=$(find emu -iname Makefile | head -n1)
-          echo "=== MAKEFILE ($MK) ==="
-          cat "$MK"
-
       - name: Compilar
         run: |
           MK=$(find emu -iname Makefile | head -n1)
           DIR=$(dirname "$MK")
-          docker run --rm -v "$PWD:/build" -w "/build/$DIR" \
-            ghcr.io/altps3/ps3dev:latest \
-            sh -c 'find $PS3DEV -name pad.h | head -n3; make -j4'
+          cat > ps3build.sh <<'EOF'
+          cd "$1"
+          export PS3DEV=${PS3DEV:-/usr/local/ps3dev}
+          export PSL1GHT=${PSL1GHT:-$PS3DEV}
+          export PATH=$PATH:$PS3DEV/bin:$PS3DEV/ppu/bin
+          echo "pad.h em:"; find $PS3DEV -name pad.h | head -n3
+          ppu-g++ -O2 -std=gnu++11 -Wall -DDOLPHINPS3_PLATFORM_PS3 \
+            -I$PSL1GHT/ppu/include -I$PS3DEV/ppu/include \
+            src/*.cpp \
+            -L$PSL1GHT/ppu/lib -L$PS3DEV/ppu/lib \
+            -lrsx -lgcm_sys -lio -lsysutil -lrt -llv2 -lm \
+            -o dolphinGCV.01.elf
+          EOF
+          docker run --rm -v "$PWD:/build" -w /build \
+            ghcr.io/altps3/ps3dev:latest sh ps3build.sh "/build/$DIR"
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: gc-emu-ps3
-          path: |
-            emu/**/*.self
-            emu/**/*.pkg
-            emu/**/*.elf
+          path: emu/**/*.elf
