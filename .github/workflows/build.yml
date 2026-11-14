@@ -9,29 +9,18 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    container: ps3dev/ps3dev:latest
-    env:
-      PS3DEV: /usr/local/ps3dev
-      PSL1GHT: /usr/local/ps3dev
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
 
-      - name: Instalar dependências
-        run: |
-          apt-get update
-          apt-get install -y make git
-
       - name: Compilar
         run: |
-          export PATH=$PATH:$PS3DEV/bin:$PS3DEV/ppu/bin:$PS3DEV/spu/bin
-          make -j$(nproc)
+          docker run --rm -v "$PWD:/src" flipacholas/ps3devextra:ubuntu-latest make -j4
 
       - name: Gerar PKG
         run: |
-          export PATH=$PATH:$PS3DEV/bin:$PS3DEV/ppu/bin:$PS3DEV/spu/bin
-          make pkg
+          docker run --rm -v "$PWD:/src" flipacholas/ps3devextra:ubuntu-latest make pkg
 
       - uses: actions/upload-artifact@v4
         with:
