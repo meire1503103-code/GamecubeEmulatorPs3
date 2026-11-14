@@ -24,7 +24,7 @@ jobs:
             python3 python-is-python3 \
             subversion libgmp-dev
 
-      - name: Instalar PS3DEV
+      name: Instalar PS3DEV
         run: |
           git clone --depth 1 https://github.com/ps3dev/ps3dev.git ps3dev
           cd ps3dev
