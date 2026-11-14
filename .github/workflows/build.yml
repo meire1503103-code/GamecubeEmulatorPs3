@@ -9,6 +9,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-22.04
+
     steps:
       - name: Baixar projeto
         uses: actions/checkout@v4
@@ -16,49 +17,27 @@ jobs:
       - name: Instalar dependencias
         run: |
           sudo apt-get update
-          sudo apt-get install -y \
-            autoconf automake bison flex gcc \
-            libelf-dev make texinfo patch wget \
-            zlib1g-dev libtool libtool-bin bzip2 \
-            pkg-config g++ libssl-dev clang \
-            python3 python-is-python3 \
-            subversion libgmp-dev
+          sudo apt-get install -y curl tar
 
-      name: Instalar PS3DEV
+      - name: Baixar toolchain PS3
         run: |
-          git clone --depth 1 https://github.com/ps3dev/ps3dev.git ps3dev
-          cd ps3dev
-          chmod +x prepare.sh build-all.sh
-          sudo ./prepare.sh
-          sudo ./build-all.sh
+          set -e
+          export PS3DEV="$HOME/ps3dev"
+          mkdir -p "$PS3DEV"
 
-      - name: Configurar ambiente
+          curl -fL \
+            "https://github.com/ps3dev/ps3dev/releases/download/nightly-2026-10-12/ps3dev-linux-X64.tar.gz" \
+            -o ps3dev.tar.gz
+
+          tar -xzf ps3dev.tar.gz -C "$PS3DEV"
+
+          echo "PS3DEV=$PS3DEV" >> "$GITHUB_ENV"
+          echo "PSL1GHT=$PS3DEV" >> "$GITHUB_ENV"
+          echo "$PS3DEV/bin" >> "$GITHUB_PATH"
+          echo "$PS3DEV/ppu/bin" >> "$GITHUB_PATH"
+          echo "$PS3DEV/spu/bin" >> "$GITHUB_PATH"
+
+      - name: Verificar toolchain
         run: |
-          echo "PS3DEV=/usr/local/ps3dev" >> $GITHUB_ENV
-          echo "PSL1GHT=/usr/local/ps3dev" >> $GITHUB_ENV
-          echo "/usr/local/ps3dev/bin" >> $GITHUB_PATH
-          echo "/usr/local/ps3dev/ppu/bin" >> $GITHUB_PATH
-          echo "/usr/local/ps3dev/spu/bin" >> $GITHUB_PATH
-
-      - name: Verificar compilador
-        run: |
-          ppu-g++ --version
-
-      - name: Extrair DolphinGC
-        run: |
-          unzip -q dolphinGCV.01_com_icone_e_capa.zip
-          cd dolphinGCV.01
-
-      - name: Compilar ELF
-        run: |
-          cd dolphinGCV.01
-          make clean
-          make
-
-      - name: Publicar ELF
-        uses: actions/upload-artifact@v4
-        with:
-          name: DolphinGC-PS3-ELF
-          path: dolphinGCV.01/dolphinGCV.01.elf
-          if-no-files-found: error
+          ppu-gcc --version
           
