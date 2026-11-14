@@ -27,13 +27,32 @@ jobs:
           export PS3DEV=${PS3DEV:-/usr/local/ps3dev}
           export PSL1GHT=${PSL1GHT:-$PS3DEV}
           export PATH=$PATH:$PS3DEV/bin:$PS3DEV/ppu/bin
-          echo "pad.h em:"; find $PS3DEV -name pad.h | head -n3
+
+          # Ajustes de compatibilidade com o newlib do PS3
+          sed -i 's/std::snprintf/snprintf/g; s/std::vsnprintf/vsnprintf/g; s/std::isnan(/__builtin_isnan(/g; s/std::isinf(/__builtin_isinf(/g' src/*.cpp src/*.h
+          cat > ps3shim.h <<'SHIM'
+          #include <cstdio>
+          #include <cmath>
+          namespace std {
+            using ::snprintf;
+            using ::fma;
+            using ::trunc;
+            using ::nearbyint;
+          }
+          SHIM
+
           ppu-g++ -O2 -std=gnu++11 -Wall -DDOLPHINPS3_PLATFORM_PS3 \
+            -include ./ps3shim.h \
             -I$PSL1GHT/ppu/include -I$PS3DEV/ppu/include \
             src/*.cpp \
             -L$PSL1GHT/ppu/lib -L$PS3DEV/ppu/lib \
             -lrsx -lgcm_sys -lio -lsysutil -lrt -llv2 -lm \
-            -o dolphinGCV.01.elf
+            -o dolphinGCV.01.elf > build.log 2>&1
+          RC=$?
+          echo "=== RESUMO DOS ERROS ==="
+          grep -E "error|undefined reference|cannot find" build.log | head -n 30
+          echo "=== FIM (codigo $RC) ==="
+          exit $RC
           EOF
           docker run --rm -v "$PWD:/build" -w /build \
             ghcr.io/altps3/ps3dev:latest sh ps3build.sh "/build/$DIR"
@@ -42,4 +61,6 @@ jobs:
         if: always()
         with:
           name: gc-emu-ps3
-          path: emu/**/*.elf
+          path: |
+            emu/**/*.elf
+            emu/**/build.log
