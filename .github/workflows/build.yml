@@ -17,23 +17,20 @@ jobs:
         run: |
           mkdir -p emu
           unzip -o ./*.zip -d emu
-          ls -R emu | head -n 60
 
       - name: Diagnostico
         run: |
           MK=$(find emu -iname Makefile | head -n1)
           echo "=== MAKEFILE ($MK) ==="
           cat "$MK"
-          echo "=== TOOLCHAIN NA IMAGEM ==="
-          docker run --rm flipacholas/ps3devextra:ubuntu-latest sh -c 'echo PS3DEV=$PS3DEV; echo PSL1GHT=$PSL1GHT; which ppu-g++; find / -name pad.h 2>/dev/null | head'
 
       - name: Compilar
         run: |
           MK=$(find emu -iname Makefile | head -n1)
           DIR=$(dirname "$MK")
-          docker run --rm -v "$PWD:/src" -w "/src/$DIR" \
-            flipacholas/ps3devextra:ubuntu-latest \
-            sh -c 'export PS3DEV=${PS3DEV:-/usr/local/ps3dev}; export PSL1GHT=${PSL1GHT:-$PS3DEV}; export PATH=$PATH:$PS3DEV/bin:$PS3DEV/ppu/bin:$PS3DEV/spu/bin; make -j4 CC=ppu-gcc CXX=ppu-g++'
+          docker run --rm -v "$PWD:/build" -w "/build/$DIR" \
+            ghcr.io/altps3/ps3dev:latest \
+            sh -c 'find $PS3DEV -name pad.h | head -n3; make -j4'
 
       - uses: actions/upload-artifact@v4
         if: always()
