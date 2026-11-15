@@ -1,8 +1,6 @@
-name: Build PS3
-
+name: Build PKG
 on:
   push:
-    branches: [main]
   workflow_dispatch:
 
 jobs:
@@ -11,27 +9,34 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Descompactar
+      - name: Achar o projeto
         run: |
-          mkdir -p emu
-          unzip -o ./*.zip -d emu
+          if [ -f ps3build.sh ]; then
+            D=.
+          else
+            for z in *.zip; do
+              n=$(unzip -Z1 "$z" || true)
+              if grep -q ps3build.sh <<<"$n"; then
+                mkdir -p _p && unzip -q "$z" -d _p
+                break
+              fi
+            done
+            D=$(dirname "$(find . -name ps3build.sh | head -n1)")
+          fi
+          echo "D=$D" >> "$GITHUB_ENV"
 
-      - name: Compilar
+      - name: Compilar e gerar o PKG
         run: |
-          DIR=$(dirname "$(find emu -iname Makefile | head -n1)")
-          docker run --rm -v "$PWD:/build" -w "/build/$DIR" ghcr.io/altps3/ps3dev:latest sh ps3build.sh
+          docker run --rm -v "$PWD/$D:/build" -w /build \
+            ghcr.io/altps3/ps3dev:latest bash ps3build.sh
 
-      - name: Conferir arquivos
+      - name: Artefato (zip com o PKG)
         if: always()
-        run: find emu -name '*.elf' -o -name '*.self' -o -name '*.pkg' -o -name '*.log'
-
-      - uses: actions/upload-artifact@v4
-        if: always()
+        uses: actions/upload-artifact@v4
         with:
-          name: gc-emu-ps3
-          if-no-files-found: error
+          name: DolphinGC-PKG
           path: |
-            emu/**/*.pkg
-            emu/**/*.self
-            emu/**/*.elf
-            emu/**/*.log
+            ${{ env.D }}/*.pkg
+            ${{ env.D }}/*.self
+            ${{ env.D }}/build.log
+            ${{ env.D }}/pkg.log
