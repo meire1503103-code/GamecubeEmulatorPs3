@@ -20,7 +20,6 @@ jobs:
       - name: Extract uploaded source ZIP if present
         run: |
           set -euo pipefail
-
           archive="$GITHUB_WORKSPACE/DolphinGC-source.zip"
 
           if [[ ! -f "$archive" ]]; then
