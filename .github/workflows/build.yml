@@ -17,6 +17,18 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
+      - name: Extract uploaded source ZIP if present
+        run: |
+          set -euo pipefail
+          archive="$GITHUB_WORKSPACE/DolphinGC-source.zip"
+          if [[ -f "$archive" ]]; then
+            mkdir -p "$GITHUB_WORKSPACE/source-import"
+            unzip -oq "$archive" -d "$GITHUB_WORKSPACE/source-import"
+            echo "DolphinGC-source.zip extraido."
+          else
+            echo "DolphinGC-source.zip nao encontrado; usando fontes ja enviados ao repositorio."
+          fi
+
       - name: Download latest official PS3DEV SDK
         env:
           GH_TOKEN: ${{ github.token }}
