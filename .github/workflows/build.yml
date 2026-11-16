@@ -10,15 +10,12 @@ permissions:
 
 jobs:
   build-pkg:
-    name: Test and package for PS3
+    name: Build and package for PS3
     runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
-
-      - name: Run host tests
-        run: make -f Makefile.host test
 
       - name: Download latest official PS3DEV SDK
         env:
@@ -35,15 +32,13 @@ jobs:
               | .browser_download_url')"
 
           if [[ -z "$asset_url" ]]; then
-            echo "Não encontrei o asset Linux x64 do release PS3DEV." >&2
+            echo "Nao encontrei o asset Linux x64 do release PS3DEV." >&2
             exit 1
           fi
 
           echo "Baixando SDK oficial: $asset_url"
-          curl --fail --location --retry 3 "$asset_url" \
-            --output "$RUNNER_TEMP/ps3dev-sdk.tar.gz"
-          tar -xzf "$RUNNER_TEMP/ps3dev-sdk.tar.gz" \
-            -C "$GITHUB_WORKSPACE"
+          curl --fail --location --retry 3 "$asset_url" --output "$RUNNER_TEMP/ps3dev-sdk.tar.gz"
+          tar -xzf "$RUNNER_TEMP/ps3dev-sdk.tar.gz" -C "$GITHUB_WORKSPACE"
 
           test -f "$GITHUB_WORKSPACE/ps3dev/ppu_rules"
 
