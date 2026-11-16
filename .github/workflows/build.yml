@@ -49,8 +49,7 @@ jobs:
           fi
 
           echo "Baixando SDK oficial: $asset_url"
-          curl --fail --location --retry 3 "$asset_url" \
-            --output "$RUNNER_TEMP/ps3dev-sdk.tar.gz"
+          curl --fail --location --retry 3 "$asset_url" --output "$RUNNER_TEMP/ps3dev-sdk.tar.gz"
           tar -xzf "$RUNNER_TEMP/ps3dev-sdk.tar.gz" -C "$RUNNER_TEMP"
 
           test -f "$RUNNER_TEMP/ps3dev/ppu_rules"
@@ -94,7 +93,6 @@ jobs:
           echo "Pasta do projeto: $project_dir"
           mkdir -p "$GITHUB_WORKSPACE/pkg-output"
           cd "$project_dir"
-
           {
             make clean
             make pkg SFOXML="$sfo_name"
