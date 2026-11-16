@@ -20,13 +20,26 @@ jobs:
       - name: Extract uploaded source ZIP if present
         run: |
           set -euo pipefail
+
           archive="$GITHUB_WORKSPACE/DolphinGC-source.zip"
-          if [[ -f "$archive" ]]; then
+
+          if [[ ! -f "$archive" ]]; then
+            archive="$(find . -path './.git' -prune -o -type f -iname '*dolphin*.zip' -print -quit)"
+          fi
+
+          if [[ -z "$archive" || ! -f "$archive" ]]; then
+            archive="$(find . -path './.git' -prune -o -type f -iname '*.zip' -print -quit)"
+          fi
+
+          echo "Arquivos ZIP encontrados no checkout:"
+          find . -path './.git' -prune -o -type f -iname '*.zip' -print
+
+          if [[ -n "$archive" && -f "$archive" ]]; then
             mkdir -p "$GITHUB_WORKSPACE/source-import"
+            echo "Extraindo arquivo: $archive"
             unzip -oq "$archive" -d "$GITHUB_WORKSPACE/source-import"
-            echo "DolphinGC-source.zip extraido."
           else
-            echo "DolphinGC-source.zip nao encontrado; usando fontes ja enviados ao repositorio."
+            echo "Nenhum ZIP encontrado; vou procurar fontes ja enviados ao repositorio."
           fi
 
       - name: Download latest official PS3DEV SDK
@@ -49,7 +62,8 @@ jobs:
           fi
 
           echo "Baixando SDK oficial: $asset_url"
-          curl --fail --location --retry 3 "$asset_url" --output "$RUNNER_TEMP/ps3dev-sdk.tar.gz"
+          curl --fail --location --retry 3 "$asset_url" \
+            --output "$RUNNER_TEMP/ps3dev-sdk.tar.gz"
           tar -xzf "$RUNNER_TEMP/ps3dev-sdk.tar.gz" -C "$RUNNER_TEMP"
 
           test -f "$RUNNER_TEMP/ps3dev/ppu_rules"
@@ -75,6 +89,7 @@ jobs:
 
           project_dir=""
           sfo_name=""
+
           while IFS= read -r candidate; do
             candidate_dir="$(dirname "$candidate")"
             if [[ -f "$candidate_dir/Makefile" && -d "$candidate_dir/src" ]]; then
@@ -93,6 +108,7 @@ jobs:
           echo "Pasta do projeto: $project_dir"
           mkdir -p "$GITHUB_WORKSPACE/pkg-output"
           cd "$project_dir"
+
           {
             make clean
             make pkg SFOXML="$sfo_name"
