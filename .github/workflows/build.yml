@@ -1,49 +1,84 @@
-name: Build PKG
+name: Build DolphinGC PS3 PKG
+
 on:
   push:
+  pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
-  build:
-    runs-on: ubuntu-latest
+  build-pkg:
+    name: Test and package for PS3
+    runs-on: ubuntu-24.04
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout source
+        uses: actions/checkout@v4
 
-      - name: Achar o projeto
+      - name: Run host tests
+        run: make -f Makefile.host test
+
+      - name: Download latest official PS3DEV SDK
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          if [ -f ps3build.sh ]; then
-            D=.
-          else
-            for z in *.zip; do
-              n=$(unzip -Z1 "$z" || true)
-              if grep -q ps3build.sh <<<"$n"; then
-                mkdir -p _p && unzip -q "$z" -d _p
-                break
-              fi
-            done
-            D=$(dirname "$(find . -name ps3build.sh | head -n1)")
+          set -euo pipefail
+
+          asset_url="$(gh api repos/ps3dev/ps3dev/releases \
+            --jq 'map(select(.prerelease and (.draft | not)))
+              | sort_by(.published_at)
+              | reverse
+              | .[0].assets[]
+              | select(.name == "ps3dev-linux-X64.tar.gz")
+              | .browser_download_url')"
+
+          if [[ -z "$asset_url" ]]; then
+            echo "Não encontrei o asset Linux x64 do release PS3DEV." >&2
+            exit 1
           fi
-          echo "D=$D" >> "$GITHUB_ENV"
 
-      - name: Preservar a pasta pkg/ do projeto
+          echo "Baixando SDK oficial: $asset_url"
+          curl --fail --location --retry 3 "$asset_url" \
+            --output "$RUNNER_TEMP/ps3dev-sdk.tar.gz"
+          tar -xzf "$RUNNER_TEMP/ps3dev-sdk.tar.gz" \
+            -C "$GITHUB_WORKSPACE"
+
+          test -f "$GITHUB_WORKSPACE/ps3dev/ppu_rules"
+
+      - name: Configure PS3DEV environment
         run: |
-          # O ps3build.sh apaga pkg/ e sobrescreve o ICON0/PIC1; isso evita
-          # perder seus config/saves/DolphinGC e os icones atualizados.
-          cd "$D"
-          sed -i 's#^rm -rf pkg && mkdir -p pkg/USRDIR#mkdir -p pkg/USRDIR#; s#^  cp ICON0.PNG PIC1.PNG pkg/#  [ -f pkg/ICON0.PNG ] || cp ICON0.PNG pkg/; [ -f pkg/PIC1.PNG ] || cp PIC1.PNG pkg/#' ps3build.sh
+          echo "PS3DEV=$GITHUB_WORKSPACE/ps3dev" >> "$GITHUB_ENV"
+          echo "PSL1GHT=$GITHUB_WORKSPACE/ps3dev" >> "$GITHUB_ENV"
+          echo "$GITHUB_WORKSPACE/ps3dev/bin" >> "$GITHUB_PATH"
+          echo "$GITHUB_WORKSPACE/ps3dev/ppu/bin" >> "$GITHUB_PATH"
+          echo "$GITHUB_WORKSPACE/ps3dev/spu/bin" >> "$GITHUB_PATH"
 
-      - name: Compilar e gerar o PKG
+      - name: Verify SDK tools
         run: |
-          docker run --rm -v "$PWD/$D:/build" -w /build \
-            ghcr.io/altps3/ps3dev:latest bash ps3build.sh
+          set -euo pipefail
+          for tool in ppu-g++ sprxlinker make_self make_self_npdrm sfo pkg package_finalize; do
+            command -v "$tool"
+          done
 
-      - name: Artefato (zip com o PKG)
+      - name: Build ELF, SELF and PKG
+        run: |
+          set -euo pipefail
+          make clean
+          make pkg 2>&1 | tee build.log
+
+      - name: Upload build outputs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: DolphinGC-PKG
+          name: DolphinGC-PS3-${{ github.sha }}
           path: |
-            ${{ env.D }}/*.pkg
-            ${{ env.D }}/*.self
-            ${{ env.D }}/build.log
-            ${{ env.D }}/pkg.log
+            dolphinGCV0.2.pkg
+            dolphinGCV0.2.gnpdrm.pkg
+            dolphinGCV0.2.elf
+            dolphinGCV0.2.self
+            build.log
+          if-no-files-found: warn
+          retention-days: 14
+          
