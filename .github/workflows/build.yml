@@ -39,18 +39,17 @@ jobs:
           echo "Baixando SDK oficial: $asset_url"
           curl --fail --location --retry 3 "$asset_url" \
             --output "$RUNNER_TEMP/ps3dev-sdk.tar.gz"
-          tar -xzf "$RUNNER_TEMP/ps3dev-sdk.tar.gz" \
-            -C "$GITHUB_WORKSPACE"
+          tar -xzf "$RUNNER_TEMP/ps3dev-sdk.tar.gz" -C "$RUNNER_TEMP"
 
-          test -f "$GITHUB_WORKSPACE/ps3dev/ppu_rules"
+          test -f "$RUNNER_TEMP/ps3dev/ppu_rules"
 
       - name: Configure PS3DEV environment
         run: |
-          echo "PS3DEV=$GITHUB_WORKSPACE/ps3dev" >> "$GITHUB_ENV"
-          echo "PSL1GHT=$GITHUB_WORKSPACE/ps3dev" >> "$GITHUB_ENV"
-          echo "$GITHUB_WORKSPACE/ps3dev/bin" >> "$GITHUB_PATH"
-          echo "$GITHUB_WORKSPACE/ps3dev/ppu/bin" >> "$GITHUB_PATH"
-          echo "$GITHUB_WORKSPACE/ps3dev/spu/bin" >> "$GITHUB_PATH"
+          echo "PS3DEV=$RUNNER_TEMP/ps3dev" >> "$GITHUB_ENV"
+          echo "PSL1GHT=$RUNNER_TEMP/ps3dev" >> "$GITHUB_ENV"
+          echo "$RUNNER_TEMP/ps3dev/bin" >> "$GITHUB_PATH"
+          echo "$RUNNER_TEMP/ps3dev/ppu/bin" >> "$GITHUB_PATH"
+          echo "$RUNNER_TEMP/ps3dev/spu/bin" >> "$GITHUB_PATH"
 
       - name: Verify SDK tools
         run: |
@@ -63,23 +62,31 @@ jobs:
         run: |
           set -euo pipefail
 
-          sfo_file="$(find . -path './ps3dev' -prune -o -type f -name sfo.xml -print -quit)"
-          if [[ -z "$sfo_file" ]]; then
-            echo "Nao encontrei sfo.xml do projeto; confira se o repositorio contem os fontes do emulador." >&2
-            exit 1
-          fi
+          project_dir=""
+          sfo_name=""
+          while IFS= read -r candidate; do
+            candidate_dir="$(dirname "$candidate")"
+            if [[ -f "$candidate_dir/Makefile" && -d "$candidate_dir/src" ]]; then
+              project_dir="$candidate_dir"
+              sfo_name="$(basename "$candidate")"
+              break
+            fi
+          done < <(find . -path './.git' -prune -o -type f -iname 'sfo.xml' -print)
 
-          project_dir="$(dirname "$sfo_file")"
-          if [[ ! -f "$project_dir/Makefile" || ! -d "$project_dir/src" ]]; then
-            echo "A pasta que contem sfo.xml nao contem Makefile e src/: $project_dir" >&2
+          if [[ -z "$project_dir" ]]; then
+            echo "Nao encontrei sfo.xml ao lado de Makefile e src/. Arquivos relevantes no checkout:" >&2
+            find . -maxdepth 5 -type f \( -iname 'sfo.xml' -o -name 'Makefile' \) -print | sort >&2
             exit 1
           fi
 
           echo "Pasta do projeto: $project_dir"
           mkdir -p "$GITHUB_WORKSPACE/pkg-output"
           cd "$project_dir"
-          make clean
-          make pkg 2>&1 | tee "$GITHUB_WORKSPACE/build.log"
+
+          {
+            make clean
+            make pkg SFOXML="$sfo_name"
+          } 2>&1 | tee "$GITHUB_WORKSPACE/build.log"
 
           for file in dolphinGCV0.2.pkg dolphinGCV0.2.gnpdrm.pkg dolphinGCV0.2.elf dolphinGCV0.2.self; do
             if [[ -f "$file" ]]; then
